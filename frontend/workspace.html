@@ -1,0 +1,76 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>My research — CoAuthorLab</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ui.css"></head><body class="workspace"><header class="app-header"><a class="brand" href="index.html"><span class="brand-mark">C</span>CoAuthorLab</a><nav class="app-nav"><a class="active" href="workspace.html">My research</a><a href="explore.html">Explore</a><a href="mentors.html">Mentors</a><a href="journal.html">Journal</a></nav><button class="profile-dot" id="signout-btn" title="Sign out">··</button></header><main class="dashboard"><p class="eyebrow"><span></span> Your workspace</p><h1 id="greeting">Good to see you.</h1><p class="lead">Your research workspace is ready. What would you like to make clearer today?</p><div class="ask-box"><input id="idea-input" aria-label="Describe an idea" placeholder="Describe an idea, e.g. drone obstacle avoidance with a camera..."><button class="button" id="idea-submit">Save idea <span>↗</span></button></div><div class="dashboard-grid" id="journey"><section class="panel saved" style="grid-column:1/-1"><div class="panel-head"><div><p class="eyebrow"><span></span> Your ideas</p><h2>Everything you've started.</h2></div></div><div id="ideas-list"><p class="loading-state">Loading…</p></div></section>
+<section class="panel saved" style="grid-column:1/-1"><div class="panel-head"><div><p class="eyebrow"><span></span> Account</p><h2>Change your password.</h2></div></div>
+<form id="password-form" style="max-width:420px"><div class="form-group"><label for="current-password">Current password</label><input id="current-password" type="password" required autocomplete="current-password"></div><div class="form-group"><label for="new-password">New password</label><input id="new-password" type="password" required minlength="8" autocomplete="new-password"></div><p class="auth-error" id="password-error" hidden></p><p class="auth-error" id="password-success" hidden style="color:#2f7a4d"></p><button class="button button-small" type="submit">Update password</button></form>
+</section></div></main>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script>
+      const token = localStorage.getItem("coauthorlab_token");
+      if (!token) window.location.href = "signin.html";
+      const user = CoAuthorLabAPI.currentUser();
+      if (user) document.getElementById("greeting").textContent = `Good to see you, ${user.name.split(" ")[0]}.`;
+
+      document.getElementById("signout-btn").addEventListener("click", () => {
+        CoAuthorLabAPI.signOut();
+        window.location.href = "index.html";
+      });
+
+      async function loadIdeas() {
+        const list = document.getElementById("ideas-list");
+        try {
+          const ideas = await CoAuthorLabAPI.request("/api/ideas/mine", { auth: true });
+          if (!ideas.length) {
+            list.innerHTML = '<p class="empty-state">No ideas yet — describe one above to start your research journey.</p>';
+            return;
+          }
+          list.innerHTML = ideas
+            .map(
+              (i) =>
+                `<div class="resource-row"><strong>${i.raw_idea}</strong><span>${i.status} · ${new Date(i.created_at).toLocaleDateString()}</span></div>`
+            )
+            .join("");
+        } catch (err) {
+          list.innerHTML = `<p class="empty-state">${err.message}</p>`;
+        }
+      }
+
+      document.getElementById("idea-submit").addEventListener("click", async () => {
+        const input = document.getElementById("idea-input");
+        const raw_idea = input.value.trim();
+        if (!raw_idea) return;
+        try {
+          await CoAuthorLabAPI.request("/api/ideas", { method: "POST", body: { raw_idea }, auth: true });
+          input.value = "";
+          loadIdeas();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+
+      loadIdeas();
+
+      document.getElementById("password-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorEl = document.getElementById("password-error");
+        const successEl = document.getElementById("password-success");
+        errorEl.hidden = true;
+        successEl.hidden = true;
+        try {
+          await CoAuthorLabAPI.request("/api/auth/change-password", {
+            method: "POST",
+            auth: true,
+            body: {
+              current_password: document.getElementById("current-password").value,
+              new_password: document.getElementById("new-password").value,
+            },
+          });
+          document.getElementById("password-form").reset();
+          successEl.textContent = "Password updated.";
+          successEl.hidden = false;
+        } catch (err) {
+          errorEl.textContent = err.message;
+          errorEl.hidden = false;
+        }
+      });
+    </script>
+  </body></html>

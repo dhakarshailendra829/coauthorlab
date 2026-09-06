@@ -1,0 +1,39 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Sign in — CoAuthorLab</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ui.css"></head><body class="auth-page"><section class="auth-brand"><a class="brand" href="index.html"><span class="brand-mark">C</span>CoAuthorLab</a><div><p class="eyebrow"><span></span> Research begins with a question</p><h1>Make your<br><em>next step clear.</em></h1></div><p>Your research workspace, saved sources and mentor conversations will live in one considered place.</p></section><section class="auth-card"><div class="auth-card-inner"><p class="eyebrow"><span></span> Welcome back</p><h1 id="auth-heading">Sign in</h1><p id="auth-sub">Sign in to reach your workspace, saved sources and mentor requests.</p><form id="auth-form"><div class="form-group" id="name-group" hidden><label for="name">Full name</label><input id="name" type="text" placeholder="Your name" autocomplete="name"></div><div class="form-group"><label for="email">Email address</label><input id="email" type="email" placeholder="you@example.com" autocomplete="email" required></div><div class="form-group"><label for="password">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="current-password" required><button class="button" type="submit">Continue <span>↗</span></button></div><p class="auth-error" id="auth-error" hidden></p></form><p class="auth-note">New to CoAuthorLab? <a href="#" id="auth-toggle">Create an account.</a></p></div></section>
+    <script src="config.js"></script>
+    <script src="app.js"></script>
+    <script>
+      let mode = "login";
+      const heading = document.getElementById("auth-heading");
+      const sub = document.getElementById("auth-sub");
+      const nameGroup = document.getElementById("name-group");
+      const toggle = document.getElementById("auth-toggle");
+      const errorEl = document.getElementById("auth-error");
+      toggle.addEventListener("click", (e) => {
+        e.preventDefault();
+        mode = mode === "login" ? "signup" : "login";
+        nameGroup.hidden = mode === "login";
+        heading.textContent = mode === "login" ? "Sign in" : "Create your account";
+        sub.textContent = mode === "login"
+          ? "Sign in to reach your workspace, saved sources and mentor requests."
+          : "Start with your idea — your workspace is created automatically.";
+        toggle.textContent = mode === "login" ? "Create an account." : "Sign in instead.";
+      });
+      document.getElementById("auth-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        errorEl.hidden = true;
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+        const name = document.getElementById("name").value.trim();
+        try {
+          const path = mode === "login" ? "/api/auth/login" : "/api/auth/signup";
+          const body = mode === "login" ? { email, password } : { name, email, password };
+          const data = await CoAuthorLabAPI.request(path, { method: "POST", body });
+          CoAuthorLabAPI.saveSession(data.token, data.user);
+          window.location.href = "workspace.html";
+        } catch (err) {
+          errorEl.textContent = err.message || "Something went wrong. Please try again.";
+          errorEl.hidden = false;
+        }
+      });
+    </script>
+  </body></html>

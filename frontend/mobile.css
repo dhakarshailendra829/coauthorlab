@@ -1,0 +1,14 @@
+@media (max-width: 850px) {
+  .navigation.is-open {
+    display: flex;
+    position: absolute;
+    top: 68px;
+    left: 0;
+    right: 0;
+    padding: 22px 6vw;
+    background: var(--paper);
+    border-bottom: 1px solid var(--line);
+    flex-direction: column;
+    gap: 18px;
+  }
+}

@@ -1,0 +1,53 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Find a mentor — CoAuthorLab</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="mobile.css"><link rel="stylesheet" href="ui.css"></head><body><header class="site-header"><a class="brand" href="index.html"><span class="brand-mark">C</span>CoAuthorLab</a><button class="menu-button" aria-label="Open navigation" aria-expanded="false">Menu</button><nav class="navigation"><a href="explore.html">Explore research</a><a href="mentors.html">Find a mentor</a><a href="journal.html">Research Journal</a><a href="index.html#pricing">Pricing</a></nav><div class="header-actions"><a class="sign-in" href="signin.html">Sign in</a><a class="button button-small" href="workspace.html">Start your idea <span>↗</span></a></div></header><main><section class="page-hero"><p class="eyebrow"><span></span> Guidance from people who have done the work</p><h1>Find a guide<br><em>for what’s next.</em></h1><p>Browse a considered network of researchers, academics and practitioners. Their expertise, availability and verification are always clear.</p><div class="mentor-search"><div><h2>What are you working on?</h2><p>Start with a field, topic or challenge.</p></div><div class="filters"><button>Robotics</button><button>Computer vision</button><button>UAV</button><button>More filters ↓</button></div></div></section><section class="content-wrap"><p class="eyebrow"><span></span> Featured guides</p><div class="directory-grid" id="mentor-directory"><p class="loading-state">Loading mentors…</p></div></section>
+<section class="content-wrap" id="become-mentor-wrap"><div class="post-action"><p><strong>Are you a researcher, professor or practitioner?</strong> Publish a verified mentor profile and guide emerging researchers in your field.</p><button class="button" id="become-mentor-btn">Become a mentor <span>↗</span></button></div></section>
+<dialog id="mentor-apply-dialog"><button class="close" data-close aria-label="Close">×</button><p class="eyebrow"><span></span> Mentor at CoAuthorLab</p><h2>Apply as a mentor</h2><form id="mentor-apply-form"><div class="form-group"><label for="m-institution">Institution / company</label><input id="m-institution" type="text" placeholder="e.g. IIT Delhi, or Independent researcher"></div><div class="form-group"><label for="m-expertise">Areas of expertise</label><input id="m-expertise" type="text" placeholder="e.g. Robotics, UAV, Computer vision"></div><div class="form-group"><label for="m-formats">Mentoring formats</label><input id="m-formats" type="text" placeholder="e.g. Written feedback, one-off session"></div><p class="auth-error" id="mentor-apply-error" hidden></p><button class="button" type="submit">Submit application <span>↗</span></button></form></dialog>
+</main><script src="config.js"></script><script src="app.js"></script><script src="script.js"></script>
+<script>
+  async function loadMentors() {
+    const grid = document.getElementById("mentor-directory");
+    try {
+      const mentors = await CoAuthorLabAPI.request("/api/mentors");
+      if (!mentors.length) {
+        grid.innerHTML = '<p class="empty-state">No verified mentors yet — be the first to apply below.</p>';
+        return;
+      }
+      grid.innerHTML = mentors
+        .map((m) => {
+          const initials = m.name.split(" ").map((p) => p[0]).slice(0, 2).join("").toUpperCase();
+          const tags = (m.expertise || "").split(",").map((t) => t.trim()).filter(Boolean);
+          return `<article class="directory-card"><div class="initial">${initials}</div><p class="verified">● Verified</p><h2>${m.name}</h2><p class="role">${m.institution || ""}</p><div class="tag-list">${tags.map((t) => `<span>${t}</span>`).join("")}</div><a href="signin.html">Request guidance ↗</a></article>`;
+        })
+        .join("");
+    } catch (err) {
+      grid.innerHTML = `<p class="empty-state">${err.message}</p>`;
+    }
+  }
+  loadMentors();
+
+  const dialog = document.getElementById("mentor-apply-dialog");
+  document.getElementById("become-mentor-btn").addEventListener("click", () => {
+    if (!localStorage.getItem("coauthorlab_token")) { window.location.href = "signin.html"; return; }
+    dialog.showModal();
+  });
+  document.getElementById("mentor-apply-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const errorEl = document.getElementById("mentor-apply-error");
+    errorEl.hidden = true;
+    try {
+      await CoAuthorLabAPI.request("/api/mentors/apply", {
+        method: "POST",
+        auth: true,
+        body: {
+          institution: document.getElementById("m-institution").value.trim(),
+          expertise: document.getElementById("m-expertise").value.trim(),
+          mentoring_formats: document.getElementById("m-formats").value.trim(),
+        },
+      });
+      dialog.close();
+      alert("Application submitted — your profile will appear once verified.");
+    } catch (err) {
+      errorEl.textContent = err.message;
+      errorEl.hidden = false;
+    }
+  });
+</script></body></html>

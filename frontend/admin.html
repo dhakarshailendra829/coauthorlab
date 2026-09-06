@@ -1,0 +1,93 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Admin — CoAuthorLab</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="ui.css"></head>
+<body class="workspace">
+<header class="app-header"><a class="brand" href="index.html"><span class="brand-mark">C</span>CoAuthorLab</a><nav class="app-nav"><a href="workspace.html">My research</a><a href="mentors.html">Mentors</a><a href="journal.html">Journal</a><a class="active" href="admin.html">Admin</a></nav><button class="profile-dot" id="signout-btn" title="Sign out">··</button></header>
+<main class="dashboard">
+  <p class="eyebrow"><span></span> Admin dashboard</p>
+  <h1>Approvals</h1>
+  <p class="lead">Review mentor applications and journal submissions before they go public.</p>
+
+  <div class="dashboard-grid" id="journey">
+    <section class="panel saved" style="grid-column:1/-1">
+      <div class="panel-head"><div><p class="eyebrow"><span></span> Pending mentors</p><h2>Applications waiting for verification.</h2></div></div>
+      <div id="pending-mentors"><p class="loading-state">Loading…</p></div>
+    </section>
+
+    <section class="panel saved" style="grid-column:1/-1">
+      <div class="panel-head"><div><p class="eyebrow"><span></span> Pending journal posts</p><h2>Submissions waiting for review.</h2></div></div>
+      <div id="pending-journal"><p class="loading-state">Loading…</p></div>
+    </section>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+<script>
+  const user = CoAuthorLabAPI.currentUser();
+  if (!localStorage.getItem("coauthorlab_token")) {
+    window.location.href = "signin.html";
+  } else if (!user || user.role !== "admin") {
+    document.querySelector("main").innerHTML =
+      '<p class="empty-state" style="padding:60px 0">This page is for admin accounts only. Signed in as: ' +
+      (user ? user.email : "unknown") + '</p>';
+  } else {
+    loadMentors();
+    loadPosts();
+  }
+
+  document.getElementById("signout-btn").addEventListener("click", () => {
+    CoAuthorLabAPI.signOut();
+    window.location.href = "index.html";
+  });
+
+  async function loadMentors() {
+    const box = document.getElementById("pending-mentors");
+    try {
+      const rows = await CoAuthorLabAPI.request("/api/mentors/pending", { auth: true });
+      if (!rows.length) { box.innerHTML = '<p class="empty-state">Nothing pending.</p>'; return; }
+      box.innerHTML = rows.map(m => `
+        <div class="resource-row" id="mentor-${m.id}">
+          <strong>${m.name} — ${m.institution || "No institution given"}</strong>
+          <span>${m.expertise || ""} · ${m.email}</span>
+          <div style="margin-top:8px;display:flex;gap:10px">
+            <button class="button button-small" onclick="approveMentor(${m.id})">Verify</button>
+            <button class="button-light button-small" onclick="rejectMentor(${m.id})">Reject</button>
+          </div>
+        </div>`).join("");
+    } catch (err) {
+      box.innerHTML = `<p class="empty-state">${err.message}</p>`;
+    }
+  }
+
+  async function loadPosts() {
+    const box = document.getElementById("pending-journal");
+    try {
+      const rows = await CoAuthorLabAPI.request("/api/journal/pending", { auth: true });
+      if (!rows.length) { box.innerHTML = '<p class="empty-state">Nothing pending.</p>'; return; }
+      box.innerHTML = rows.map(p => `
+        <div class="resource-row" id="post-${p.id}">
+          <strong>${p.title}</strong>
+          <span>${p.post_type} · by ${p.author}</span>
+          <div style="margin-top:8px;display:flex;gap:10px">
+            <button class="button button-small" onclick="moderatePost(${p.id}, 'published')">Publish</button>
+            <button class="button-light button-small" onclick="moderatePost(${p.id}, 'rejected')">Reject</button>
+          </div>
+        </div>`).join("");
+    } catch (err) {
+      box.innerHTML = `<p class="empty-state">${err.message}</p>`;
+    }
+  }
+
+  async function approveMentor(id) {
+    await CoAuthorLabAPI.request(`/api/mentors/${id}/verify`, { method: "POST", auth: true });
+    document.getElementById(`mentor-${id}`).remove();
+  }
+  async function rejectMentor(id) {
+    await CoAuthorLabAPI.request(`/api/mentors/${id}/reject`, { method: "POST", auth: true });
+    document.getElementById(`mentor-${id}`).remove();
+  }
+  async function moderatePost(id, decision) {
+    await CoAuthorLabAPI.request(`/api/journal/${id}/moderate`, { method: "POST", auth: true, body: { decision } });
+    document.getElementById(`post-${id}`).remove();
+  }
+</script>
+</body></html>

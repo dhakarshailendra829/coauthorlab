@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Research Journal — CoAuthorLab</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="mobile.css"><link rel="stylesheet" href="ui.css"></head><body class="journal-page"><header class="site-header"><a class="brand" href="index.html"><span class="brand-mark">C</span>CoAuthorLab</a><button class="menu-button" aria-label="Open navigation" aria-expanded="false">Menu</button><nav class="navigation"><a href="explore.html">Explore research</a><a href="mentors.html">Find a mentor</a><a href="journal.html">Research Journal</a><a href="index.html#pricing">Pricing</a></nav><div class="header-actions"><a class="sign-in" href="signin.html">Sign in</a><a class="button button-small" href="workspace.html">Start your idea <span>↗</span></a></div></header><main><section class="page-hero"><p class="eyebrow"><span></span> Research Journal</p><h1>Work worth<br><em>sharing.</em></h1><p>A calmer kind of research community: original project notes, paper reflections, publications and opportunities—clearly labelled and thoughtfully presented.</p></section><section class="content-wrap"><div class="post-action" id="post-action"><p><strong>Publishing is admin-managed.</strong> Each post shows whether it is published work, a preprint, project update or expert article, so readers always understand its context.</p></div>
+<div class="journal-grid" id="journal-grid"><p class="loading-state">Loading posts…</p></div></section></main>
+<script src="config.js"></script><script src="app.js"></script><script src="script.js"></script>
+<script>
+  const typeLabel = { published_work: "PUBLISHED WORK", preprint: "PREPRINT / MANUSCRIPT", project_update: "PROJECT NOTE", expert_article: "EXPERT ARTICLE", opportunity: "OPPORTUNITY" };
+  async function loadJournal() {
+    const grid = document.getElementById("journal-grid");
+    try {
+      const posts = await CoAuthorLabAPI.request("/api/journal");
+      if (!posts.length) {
+        grid.innerHTML = '<p class="empty-state">No published posts yet.</p>';
+        return;
+      }
+      grid.innerHTML = posts
+        .map((p, i) => {
+          const link = p.doi_or_link ? `<a href="${p.doi_or_link}" target="_blank" rel="noopener" class="text-link">View paper / source ↗</a>` : "";
+          return `<article class="story${i === 0 ? " featured" : ""}"><p class="story-type">${typeLabel[p.post_type] || p.post_type}</p><h2>${p.title}</h2><p>${p.summary || ""}</p><p>${p.author} · ${new Date(p.created_at).toLocaleDateString()}</p>${link}</article>`;
+        })
+        .join("");
+    } catch (err) {
+      grid.innerHTML = `<p class="empty-state">${err.message}</p>`;
+    }
+  }
+  loadJournal();
+
+  const user = CoAuthorLabAPI.currentUser();
+  if (user && user.role === "admin") {
+    document.getElementById("post-action").insertAdjacentHTML("beforeend", `
+      <form id="new-post-form" style="margin-top:22px;max-width:560px">
+        <div class="form-group"><label for="p-title">Title</label><input id="p-title" required></div>
+        <div class="form-group"><label for="p-type">Type</label>
+          <select id="p-type" style="width:100%;padding:12px;border:1px solid var(--line);font:inherit">
+            <option value="published_work">Published work</option>
+            <option value="preprint">Preprint / manuscript</option>
+            <option value="project_update">Project note</option>
+            <option value="expert_article">Expert article</option>
+            <option value="opportunity">Opportunity</option>
+          </select>
+        </div>
+        <div class="form-group"><label for="p-summary">Summary</label><input id="p-summary"></div>
+        <div class="form-group"><label for="p-link">Paper / Zenodo / DOI link</label><input id="p-link" placeholder="https://zenodo.org/record/..."></div>
+        <p class="auth-error" id="p-error" hidden></p>
+        <button class="button button-small" type="submit">Publish now</button>
+      </form>
+    `);
+    document.getElementById("new-post-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorEl = document.getElementById("p-error");
+      errorEl.hidden = true;
+      try {
+        await CoAuthorLabAPI.request("/api/journal", {
+          method: "POST",
+          auth: true,
+          body: {
+            title: document.getElementById("p-title").value.trim(),
+            post_type: document.getElementById("p-type").value,
+            summary: document.getElementById("p-summary").value.trim(),
+            doi_or_link: document.getElementById("p-link").value.trim(),
+          },
+        });
+        document.getElementById("new-post-form").reset();
+        loadJournal();
+      } catch (err) {
+        errorEl.textContent = err.message;
+        errorEl.hidden = false;
+      }
+    });
+  }
+</script>
+</body></html>
